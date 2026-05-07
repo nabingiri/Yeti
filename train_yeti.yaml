@@ -1,0 +1,93 @@
+name: Yeti_CA_512_8 # 8 encoder and 8 decoder layers. 512 dimension hidden state.
+
+data:
+  batch_size: 120 # 92 for 40GB. so 92 * 2 = 184 (is safe)
+  num_workers: 4
+  device: cpu
+  meta_data: path/to/meta_data.csv
+  cif_dir: path/to/cif_dir
+  backbone_atom_mode: CA
+  max_train_samples: null
+  max_val_samples: null
+  max_test_samples: null
+  max_total_samples: null
+  train_split: 0.999
+  val_split: 0.0009
+  test_split: 0.0001
+  max_seq_length: 512
+  min_seq_length: 50
+  plddt_threshold: 70.0
+  save_filtered_metadata_path: null
+  save_train_ids: True
+  save_val_ids: True
+  save_train_ids_path: ${name}/train_ids.txt
+  save_val_ids_path: ${name}/val_ids.txt
+  save_test_ids: True
+  save_test_ids_path: ${name}/test_ids.txt
+
+model:
+  name: structure_tokenizer
+  encoder_coord_mode: CA   # Encoder sees CA (3D)
+  decoder_coord_mode: CA   # Decoder predicts CA (3D)
+  coord_scale: 0.0667
+  encoder:
+    hidden_dim: 512
+    depth: 8
+    num_heads: 8
+    max_seq_len: 512
+    dropout: 0.1
+    use_rotary: true
+  quantizer:
+    codebook_size: 8192
+    num_codebooks: 1
+    entropy_loss_weight: 0.1
+    commitment_loss_weight: 0.25
+    post_quant_proj_dim: 256
+  decoder:
+    hidden_dim: 512
+    depth: 8
+    num_heads: 8
+    dropout: 0.1
+    cond_dropout: 0.15
+        # StripedHyena Hyena block params (optional; Used defaults from the codebase)
+    state_size: 2
+    short_filter_length: 3
+    num_filters: null
+    short_filter_bias: true
+loss:
+  lambda_flow: 1.0
+  lambda_lfq: 1.0
+
+optimizer:
+  lr: 3e-5
+  weight_decay: 0.0
+
+train:
+  accelerator: gpu
+  num_gpu: 1
+  num_nodes: 1
+  devices: auto
+  strategy: ddp_find_unused_parameters_true
+  precision: bf16-mixed
+  max_epochs: 30
+  min_epochs: 6
+  seed: 23
+  eval_interval: 1
+  fast_dev_run: False
+  gradient_accumulation_steps: 1
+  gradient_clip_val: 1.0
+  log_interval: 1
+  save_top_k: 3
+  save_last: true
+  monitor: val_loss
+  mode: min
+  log_dir: ${name}/logs
+  checkpoint_dir: ${name}/checkpoints
+  resume_from_checkpoint: path/to/checkpoint.ckpt
+  resume_from_latest: false # do this if you want to resume from the latest checkpoint. Useful for training on low time allocation nodes: e.g. slurm. 
+
+wandb:
+  project_name: Yeti_CA_512_8
+  entity_name: nabingiri
+  logs: ${name}/wandb_logs
+  run_name: ${name}
